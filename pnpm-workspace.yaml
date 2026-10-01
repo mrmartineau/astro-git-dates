@@ -1,16 +1,9 @@
-packages:
-  - docs
 allowBuilds:
   esbuild: true
-  # sharp works via prebuilt @img/* binaries; its install script false-fails
-  # on this machine, so don't run it.
-  sharp: false
-  workerd: true
+  workerd: set this to true or false
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2
   vite-plus: 0.2.2
-minimumReleaseAgeExclude:
-  - "@mrmartineau/zui-theme@1.1.2"
 overrides:
   vite: "catalog:"
 peerDependencyRules:

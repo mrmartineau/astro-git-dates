@@ -130,7 +130,6 @@ pnpm install
 pnpm run build        # tsdown → dist/
 pnpm run test         # bun test
 pnpm run check        # vp check --fix (format, lint, types)
-pnpm run docs:dev     # docs site
 ```
 
 Releases run from the **NPM Release** workflow in the Actions tab. Versions follow [conventional commits](https://www.conventionalcommits.org/): `fix:` patch, `feat:` minor, `feat!:` major.

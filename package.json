@@ -45,9 +45,6 @@
     "build": "tsdown",
     "check": "vp check --fix",
     "dev": "tsdown --watch",
-    "docs:build": "pnpm --filter docs build",
-    "docs:dev": "pnpm --filter docs dev",
-    "docs:deploy": "pnpm --filter docs deploy",
     "prepare": "vp config",
     "release": "semantic-release",
     "test": "bun test"
