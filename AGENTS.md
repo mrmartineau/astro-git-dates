@@ -49,7 +49,10 @@ Before committing: `pnpm run check && pnpm run build && pnpm run test`.
   tests.
 - `release.yml` — manual dispatch: semantic-release publishes the package to
   npm. Version comes from conventional commits (`fix:` patch, `feat:` minor,
-  `feat!:`/`BREAKING CHANGE:` major). Needs `NPM_TOKEN` secret.
+  `feat!:`/`BREAKING CHANGE:` major). npm auth is trusted publishing (OIDC),
+  so there is no `NPM_TOKEN` secret. The first version must be published by
+  hand (`npm publish`), then link the repo with `npm trust github <name>
+--repo <owner>/<repo> --file release.yml --allow-publish`.
 - `security.yml` — Aikido safe-chain supply-chain scan on every branch.
 
 CI installs with `--frozen-lockfile`: if you change any `package.json`, run
