@@ -1,472 +1,99 @@
 ---
-name: creating-npm-packages
-description: "Scaffold new TypeScript npm packages with ESM + CJS dual output, pnpm installs, Vite+ (vp) linting/formatting, Bun testing, tsdown bundling, semantic-release publishing, and GitHub Actions CI. Use when asked to create, scaffold, or set up a new npm package."
+name: astro-git-dates
+description: "Set dates in Astro content collections from git with the astro-git-dates package: frontmatter like `date: git Last Modified` or `date: git Created` becomes the file's commit date at build time, like Eleventy's git Last Modified. Use when asked to use git dates, last-modified dates, or 'updated' dates from git in an Astro site, to port Eleventy's git Last Modified to Astro, or to work with an existing astro-git-dates setup."
 ---
 
-# Creating npm Packages
+# astro-git-dates
 
-Scaffold production-ready TypeScript npm packages with a consistent stack:
-**pnpm** (package manager), **Bun** (test runner), **tsdown** (bundler),
-**Vite+ / `vp`** (lint/format/typecheck + git hooks), **semantic-release**
-(publishing), **GitHub Actions** (CI).
+`gitDates()` wraps an Astro content loader. Any top-level frontmatter field set
+to one of two keywords becomes a git date before the collection schema
+validates it:
 
-## Workflow
+| Frontmatter value   | Becomes                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `git Last Modified` | Date of the last commit that changed the file            |
+| `git Created`       | Date of the commit that added the file (follows renames) |
 
-1. Create the project directory and initialise git
-2. Generate all config files using the templates below
-3. Replace placeholder values (`PACKAGE_NAME`, `PACKAGE_DESCRIPTION`, `GITHUB_OWNER`, `GITHUB_REPO`, `CURRENT_YEAR`) with user-provided values
-4. Write initial source code in `src/index.ts` and a starter test in `src/index.test.ts`
-5. Run `pnpm install` (the `prepare` script runs `vp config`, which installs the pre-commit hook)
-6. Run `pnpm run build` to verify the setup works
-7. Run `pnpm run test` to verify tests pass
-8. Run `pnpm run check` to verify lint/format/typecheck passes
+It is opt-in per entry. Fields with any other value do not change.
 
-## Project Structure
+## Setup
 
-```text
-.
-├── .github/
-│   └── workflows/
-│       ├── build-test.yml
-│       ├── release.yml
-│       └── security.yml
-├── src/
-│   ├── index.ts
-│   └── index.test.ts
-├── .gitignore
-├── CHANGELOG.md
-├── LICENSE
-├── package.json
-├── README.md
-├── release.config.mjs
-├── tsconfig.json
-└── vite.config.ts
-```
+1. Install: `pnpm add astro-git-dates` (or the project's package manager).
+2. Make sure each collection that needs it uses a content loader, normally
+   `glob()` from `astro/loaders`. Old `type: 'content'` collections cannot use
+   it: they do not give a file path. See "Moving from type: 'content'" below.
+3. Wrap the loader:
 
-`vp config` also generates a `.vite-hooks/` directory (pre-commit hook running
-`vp staged`) and sets `core.hooksPath` — the generated `_/` shim dir ignores
-itself; commit `.vite-hooks/pre-commit`.
+   ```ts
+   // src/content.config.ts (or src/content/config.ts)
+   import { defineCollection, z } from "astro:content";
+   import { glob } from "astro/loaders";
+   import { gitDates } from "astro-git-dates";
 
-## File Templates
+   const blog = defineCollection({
+     loader: gitDates(glob({ pattern: "**/*.{md,mdx}", base: "./src/content/blog" })),
+     schema: z.object({
+       title: z.string(),
+       date: z.date(),
+       modified: z.date().optional(),
+     }),
+   });
+   ```
 
-### package.json
+   Keep the schema as `z.date()`. Do not add the keyword to the schema: the
+   swap happens before validation.
 
-```json
-{
-  "name": "PACKAGE_NAME",
-  "version": "0.0.0",
-  "description": "PACKAGE_DESCRIPTION",
-  "license": "ISC",
-  "type": "module",
-  "files": ["dist"],
-  "author": {
-    "name": "Zander Martineau",
-    "email": "zander@zander.wtf",
-    "url": "https://zander.wtf"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/GITHUB_OWNER/GITHUB_REPO.git"
-  },
-  "homepage": "https://github.com/GITHUB_OWNER/GITHUB_REPO",
-  "bugs": {
-    "url": "https://github.com/GITHUB_OWNER/GITHUB_REPO/issues"
-  },
-  "main": "./dist/index.cjs",
-  "types": "./dist/index.d.cts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
-    }
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "node": ">=20.19.0"
-  },
-  "packageManager": "pnpm@11.10.0",
-  "scripts": {
-    "build": "tsdown src/index.ts --format cjs,esm --target es2020 --dts --sourcemap --clean",
-    "check": "vp check --fix",
-    "dev": "tsdown src/index.ts --format cjs,esm --target es2020 --dts --sourcemap --watch",
-    "prepare": "vp config",
-    "release": "semantic-release",
-    "test": "bun test"
-  },
-  "devDependencies": {
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^11.0.0",
-    "@types/bun": "^1.3.10",
-    "@types/node": "^25.4.0",
-    "semantic-release": "^25.0.3",
-    "tsdown": "^0.21.2",
-    "typescript": "^5.9.3",
-    "vite-plus": "^0.2.2"
-  }
-}
-```
+4. Make CI fetch the full git history, or every file gets the same date. On
+   GitHub Actions, add `fetch-depth: 0` under `with:` on `actions/checkout`.
+   Check every workflow that builds the site.
+5. Set the keyword in the entries that should use it:
 
-Key conventions:
+   ```yaml
+   date: git Last Modified
+   ```
 
-- Always set `"type": "module"` for ESM-first
-- `exports` map with per-condition `types`: tsdown emits `index.mjs` /
-  `index.cjs` with matching `index.d.mts` / `index.d.cts` — never point at
-  `index.js` / `index.d.ts`, those files don't exist
-- `"files": ["dist"]` to publish only built output
-- `"publishConfig": { "access": "public" }` for scoped packages
-- Use `tsdown` (not tsup) for bundling
+   Do not change entries in bulk unless the user asks. Only entries that use a
+   keyword get git dates.
 
-### vite.config.ts
+## Moving from type: 'content'
 
-Vite+ tooling config: pre-commit staged checks, formatter, and type-aware
-linting.
+When a collection moves to `glob()`, fix every consumer of it:
+
+- `entry.slug` → `entry.id`. A frontmatter `slug` still sets the `id`. Search
+  `.astro`, `.ts` **and `.js`** files (RSS feeds are often `.js`, so the type
+  check does not catch them). Look for destructuring too: `const { slug } = Astro.props`.
+- `entry.render()` → `render(entry)`, imported from `astro:content`.
+- `entry.body` is `string | undefined` → `entry.body ?? ""`.
+- Routes shared with collections that still use `type: 'content'` need both:
+  `'slug' in entry ? entry.slug : entry.id`.
+- `_` files and folders are no longer skipped. Add
+  `"!**/_*", "!**/_*/**"` to the glob pattern to keep drafts out.
+
+Check the move: build before and after, then compare the list of built pages
+(`find dist -name index.html | sort`) and the feed links. They must match.
+
+## Helpers
+
+For tools that read the markdown files themselves (search indexers, feed
+scripts), which see the raw keyword text:
 
 ```ts
-import { defineConfig } from "vite-plus";
+import { GIT_LAST_MODIFIED, GIT_CREATED, gitLastModified, gitCreated } from "astro-git-dates";
 
-export default defineConfig({
-  staged: {
-    "*": "vp check --fix",
-  },
-  fmt: {},
-  lint: {
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    rules: { "vite-plus/prefer-vite-plus-imports": "error" },
-    options: { typeAware: true, typeCheck: true },
-  },
-});
+const date = data.date === GIT_LAST_MODIFIED ? gitLastModified(file) : data.date;
 ```
 
-### release.config.mjs
+Both helpers return a `Date`, accept relative or absolute paths, and return the
+current time for a file with no commits. They use Node built-ins: build time
+only, never in a Worker or client bundle.
 
-```js
-export default {
-  branches: ["main"],
-  plugins: [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
-    "@semantic-release/changelog",
-    "@semantic-release/npm",
-    [
-      "@semantic-release/git",
-      {
-        assets: ["package.json", "CHANGELOG.md"],
-        message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
-      },
-    ],
-    [
-      "@semantic-release/github",
-      {
-        failComment: false,
-        failTitle: false,
-      },
-    ],
-  ],
-};
-```
+## Troubleshooting
 
-Create a `CHANGELOG.md` stub (`# Changelog` heading + one line saying notes are
-generated by semantic-release); releases prepend notes to it.
-
-### tsconfig.json
-
-```json
-{
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "target": "es2022",
-    "allowJs": true,
-    "resolveJsonModule": true,
-    "moduleDetection": "force",
-    "types": ["bun"],
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "module": "NodeNext",
-    "outDir": "dist",
-    "rootDir": "src",
-    "sourceMap": true,
-    "declaration": true
-  },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"]
-}
-```
-
-`"types": ["bun"]` makes `bun:test` imports resolve for the type-aware `vp
-check`.
-
-### .github/workflows/build-test.yml
-
-```yaml
-name: Build and Test
-
-on:
-  pull_request:
-  push:
-    branches:
-      - main
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  ci:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
-          cache: "pnpm"
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check
-        run: pnpm run check
-
-      - name: Build
-        run: pnpm run build
-
-      - name: Run Tests
-        run: pnpm run test
-```
-
-### .github/workflows/release.yml
-
-```yaml
-name: NPM Release
-
-on:
-  workflow_dispatch:
-
-concurrency: ${{ github.workflow }}-${{ github.ref }}
-
-jobs:
-  release:
-    name: Release to NPM
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # semantic-release needs full history
-      - uses: pnpm/action-setup@v4
-        with:
-          version: latest
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
-          cache: "pnpm"
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
-      - run: pnpm exec semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-```
-
-### .github/workflows/security.yml
-
-```yaml
-name: Security
-
-on:
-  push:
-    branches: ["**"]
-
-jobs:
-  safe-chain:
-    name: Aikido safe-chain
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "latest"
-          cache: "pnpm"
-      - name: Install safe-chain
-        run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.sh | sh -s -- --ci
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-```
-
-### .gitignore
-
-```
-node_modules/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Environment variables
-.env
-.env.*
-!.env.example
-
-# Build output and caches
-dist/
-build/
-coverage/
-.cache/
-.turbo/
-.vite/
-*.tsbuildinfo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Editor/IDE files
-.idea/
-.vscode/
-*.swp
-*.swo
-```
-
-### LICENSE (ISC)
-
-```
-ISC License
-
-Copyright (c) CURRENT_YEAR Zander Martineau
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-```
-
-### src/index.ts (starter)
-
-Write the actual package implementation here. If no specific functionality is requested, use this minimal starter:
-
-```ts
-export interface HelloOptions {
-  punctuation?: string;
-}
-
-export function hello(name = "world", { punctuation = "!" }: HelloOptions = {}): string {
-  return `Hello, ${name}${punctuation}`;
-}
-```
-
-### src/index.test.ts (starter)
-
-```ts
-import { describe, expect, test } from "bun:test";
-
-import { hello } from "./index.js";
-
-describe("hello", () => {
-  test("returns a greeting with the provided name", () => {
-    expect(hello("Bun")).toBe("Hello, Bun!");
-  });
-});
-```
-
-## Conventions
-
-- **Package manager**: pnpm for installing and running scripts
-- **Bundler**: tsdown (ESM + CJS dual output: `.mjs` / `.cjs` with `.d.mts` / `.d.cts` types)
-- **Linting/formatting/typechecking**: Vite+ `vp check --fix` (not ESLint/Prettier/Biome), configured in `vite.config.ts`
-- **Git hooks**: `vp config` (via the `prepare` script) installs a pre-commit hook running `vp staged`
-- **Testing**: `bun:test` (not Jest or Vitest)
-- **Releasing**: semantic-release with conventional commits, changelog written to `CHANGELOG.md`
-- **Target**: ES2020 for broad compatibility, Node.js ≥ 20.19.0
-- **Strict TypeScript**: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `verbatimModuleSyntax`
-- **Imports**: Always use `.js` extension in relative imports (required by `verbatimModuleSyntax` + NodeNext)
-
-## Release Conventions
-
-Releases run from the manually-triggered `NPM Release` workflow (Actions → Run
-workflow). Version bumps are determined by conventional commit messages:
-
-- `fix:` → patch release
-- `feat:` → minor release
-- `feat!:` or `BREAKING CHANGE:` in footer → major release
-
-The release job requires two repository secrets:
-
-- `NPM_TOKEN` — npm publish token
-- `GITHUB_TOKEN` — automatically provided by GitHub Actions
-
-semantic-release commits the version bump and `CHANGELOG.md` back to `main`
-with `[skip ci]` — never hand-edit `version` in `package.json`.
-
-## Multiple Entrypoints
-
-If the package needs multiple entrypoints, update both the build command and the `exports` map:
-
-```json
-{
-  "exports": {
-    ".": {
-      "import": { "types": "./dist/index.d.mts", "default": "./dist/index.mjs" },
-      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
-    },
-    "./utils": {
-      "import": { "types": "./dist/utils.d.mts", "default": "./dist/utils.mjs" },
-      "require": { "types": "./dist/utils.d.cts", "default": "./dist/utils.cjs" }
-    }
-  },
-  "scripts": {
-    "build": "tsdown src/index.ts src/utils.ts --format cjs,esm --target es2020 --dts --sourcemap --clean"
-  }
-}
-```
-
-## Adding Runtime Dependencies
-
-When the package needs runtime dependencies, add them to `dependencies` (not `devDependencies`). Only devDependencies should include build tools, types, and test utilities.
-
-## README Template
-
-Generate a README with:
-
-1. Package name as heading
-2. One-line description
-3. Install instructions (`pnpm add PACKAGE_NAME` / `npm install PACKAGE_NAME`)
-4. Usage example with import
-5. API documentation for exported functions/types
-6. License footer
+| Symptom                                                   | Cause                                                                                                           |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Every entry has the same date in production               | CI clone is shallow. Add `fetch-depth: 0`.                                                                      |
+| Many entries share one old date                           | One bulk commit (move, reformat) touched them all. Expected; use a fixed date for those entries.                |
+| Schema error: expected date, received string              | The collection does not use `gitDates()`, or uses `type: 'content'`.                                            |
+| Date in `astro dev` does not update after a commit        | Astro's data store cache. Change the file, or delete `node_modules/.astro`.                                     |
+| Type error "excessive stack depth comparing types Loader" | Two Astro copies (often a `link:` install). Update `astro-git-dates`; current versions are typed to avoid this. |
+| Search or feeds show "git Last M" as a date               | That tool parses frontmatter itself. Use the helpers above.                                                     |

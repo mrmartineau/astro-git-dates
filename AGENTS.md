@@ -1,12 +1,17 @@
-# zed-package-starter — agent & contributor guide
+# astro-git-dates — agent & contributor guide
 
-Starter template for TypeScript npm packages, plus a documentation website. The
-repo is a pnpm monorepo with two parts:
+`CLAUDE.md` is a symlink to this file — edit one, both change.
 
-| Part        | Where              | What it is                                                                                   |
-| ----------- | ------------------ | -------------------------------------------------------------------------------------------- |
-| npm package | repo root (`src/`) | The publishable package (`@mrmartineau/npm-package-base`). ESM + CJS dual output via tsdown. |
-| Docs site   | `docs/`            | Astro site using `@mrmartineau/zui-theme`, deployed to Cloudflare Workers.                   |
+Sets Astro content collection dates from git. `gitDates()` wraps a content
+loader (usually `glob()`), and any top-level frontmatter field set to
+`git Last Modified` or `git Created` becomes that git date before the schema
+validates it. Modelled on Eleventy's feature of the same name. The repo is a
+pnpm monorepo with two parts:
+
+| Part        | Where              | What it is                                                                 |
+| ----------- | ------------------ | -------------------------------------------------------------------------- |
+| npm package | repo root (`src/`) | The publishable package (`astro-git-dates`). ESM-only output via tsdown.   |
+| Docs site   | `docs/`            | Astro site using `@mrmartineau/zui-theme`, deployed to Cloudflare Workers. |
 
 Root `package.json` is the package itself; `docs` is a private workspace
 package. `pnpm-workspace.yaml` wires them together (it also holds the vite
@@ -33,8 +38,17 @@ Before committing: `pnpm run check && pnpm run build && pnpm run test`, and
 ## The package (`src/`)
 
 - Source in `src/index.ts`, tests co-located as `src/*.test.ts` (Bun test).
-- `pnpm run build` emits ESM (`index.mjs`), CJS (`index.cjs`), and `.d.ts`
-  types into `dist/`. Only `dist/` is published (`files` field).
+- `pnpm run build` emits ESM (`index.mjs`) and `.d.mts` types into `dist/`
+  (config in `tsdown.config.ts`). ESM only: Astro configs are ESM, so a CJS
+  build would never load. Only `dist/` is published (`files` field).
+- `gitDates()` is typed loosely on purpose (`T extends Pick<Loader, "name">`,
+  returns `T`). A site and this package can hold different Astro copies, and
+  TypeScript gives up ("excessive stack depth") comparing two full `Loader`
+  types. Don't tighten it to `(loader: Loader): Loader`.
+- `git` runs in the file's own folder (`cwd: dirname(filePath)`), so relative
+  and absolute paths both work, in any repo.
+- The test builds a throwaway git repo in a temp folder with fixed commit
+  dates. CI clones shallow, so never test against this repo's own history.
 - TypeScript config in `tsconfig.json`; lint/format/typecheck via Vite+
   (`vp check`), configured in root `vite.config.ts`.
 - Releases prepend notes to `CHANGELOG.md` (via `@semantic-release/changelog`);
@@ -97,7 +111,7 @@ automatically. Useful theme components: `Demo` (live preview + tabbed source),
 - `build-test.yml` — every PR/push to main: `vp check`, package build, docs
   build, bun tests.
 - `deploy-docs.yml` — push to main touching `docs/**` (or manual dispatch):
-  builds docs and deploys the `zed-package-starter-docs` Worker via
+  builds docs and deploys the `astro-git-dates-docs` Worker via
   wrangler-action. Needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo
   secrets. Wrangler config: `docs/wrangler.jsonc` (assets served from
   `docs/dist/client`).
@@ -119,19 +133,16 @@ CI installs with `--frozen-lockfile`: if you change any `package.json`, run
 - **Changelog**: `docs/src/pages/changelog.astro` imports the root
   `CHANGELOG.md` — don't delete that file; semantic-release prepends release
   notes to it.
-- **Worker name** lives in `docs/wrangler.jsonc` (`zed-package-starter-docs`).
+- **Worker name** lives in `docs/wrangler.jsonc` (`astro-git-dates-docs`).
   Renaming it deploys a new Worker instead of updating the existing one.
 - **Docs build output** goes to `docs/dist/client` (the Cloudflare adapter
   splits client/server); `wrangler.jsonc` points there — don't change one
   without the other.
-- **Package rename**: when using this template for a real package, update root
-  `package.json` (`name`, `description`, repo URLs), `docs/src/site.config.ts`,
-  and the npm link in this file.
 - **semantic-release** commits the version bump back to `main` with
   `[skip ci]` — don't hand-edit `version` in root `package.json`.
 
-## Using this repo as a template
+## Agent skill
 
-See `README.md` for the copy-and-customise checklist, and `SKILL.md` for the
-agent skill that scaffolds new packages from these conventions
-(`npx skills add mrmartineau/npm-package-base`).
+`SKILL.md` teaches coding agents to set the package up in an Astro site
+(`npx skills add mrmartineau/astro-git-dates`). Keep it in step with the
+README and docs when the API or the keywords change.

@@ -2,28 +2,92 @@
 layout: ../../layouts/Layout.astro
 title: Getting started
 order: 1
-description: Install your package and add it to a project.
+description: Install the package, wrap your loaders, and use the keywords.
 ---
 
 ## Install
 
 ```sh
-npm install your-package
+pnpm add astro-git-dates
 ```
 
-## Use it
+## Wrap your loaders
 
-Document your package's API here. Write standard Markdown, drop in code blocks,
-and they'll be syntax-highlighted automatically.
+Wrap the loader of each collection that should support git dates with `gitDates()`. You choose
+the collections: one call for each.
 
 ```ts
-import { thing } from "your-package";
+// src/content.config.ts
+import { defineCollection, z } from "astro:content";
+import { glob } from "astro/loaders";
+import { gitDates } from "astro-git-dates";
 
-thing();
+const blog = defineCollection({
+  loader: gitDates(glob({ pattern: "**/*.{md,mdx}", base: "./src/content/blog" })),
+  schema: z.object({
+    title: z.string(),
+    date: z.date(),
+    modified: z.date().optional(),
+  }),
+});
+
+const notes = defineCollection({
+  loader: gitDates(glob({ pattern: "**/*.md", base: "./src/content/notes" })),
+  schema: z.object({
+    title: z.string(),
+    date: z.date().optional(),
+  }),
+});
+
+export const collections = { blog, notes };
 ```
 
-## Add a new page
+The schema stays `z.date()`. The keyword is changed to a date before validation, so the schema
+only sees a real `Date`.
 
-Create a new `.mdx` file anywhere under `src/pages/<section>/` and it shows up in
-the sidebar automatically. For example, `src/pages/guides/configuration.mdx`
-adds a "Configuration" entry to the Guides section.
+## Use the keywords
+
+| Frontmatter value   | Becomes                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `git Last Modified` | Date of the last commit that changed the file            |
+| `git Created`       | Date of the commit that added the file (follows renames) |
+
+A note you keep updating:
+
+```yaml
+---
+title: Array methods summarised
+date: git Last Modified
+---
+```
+
+A post with a created date and an updated date. The keywords work in any top-level field:
+
+```yaml
+---
+title: My post
+date: git Created
+modified: git Last Modified
+---
+```
+
+An old post keeps its fixed date:
+
+```yaml
+---
+title: An old post
+date: 2022-09-21
+---
+```
+
+## Fetch the full history in CI
+
+Most CI clones only the latest commit, so every file would get the same date. On GitHub Actions:
+
+```yaml
+- uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+```
+
+Next: [Good to know](/guides/good-to-know).

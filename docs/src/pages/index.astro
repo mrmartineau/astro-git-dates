@@ -9,9 +9,22 @@ import { site } from "../site.config";
     <h1 class="hero-title">{site.title}</h1>
     <p class="hero-subtitle">{site.description}</p>
     <div class="hero-actions">
-      <a href="/guides" class="zui-button">Get started</a>
-      <a href="/components" class="zui-button zui-button-variant-outline">Browse components</a>
+      <a href="/guides/getting-started" class="zui-button">Get started</a>
+      <a href="/reference/exports" class="zui-button zui-button-variant-outline">Reference</a>
     </div>
+  </section>
+
+  <section class="landing-section flow">
+    <h2>How it looks</h2>
+    <pre><code>---
+title: Array methods summarised
+date: git Last Modified
+---</code></pre>
+    <p>
+      At build time, <code>git Last Modified</code> becomes the date of the file's last commit.
+      <code>git Created</code> becomes the date of the commit that added it. Entries with a normal
+      date do not change.
+    </p>
   </section>
 
   <section class="landing-section flow">
@@ -20,8 +33,8 @@ import { site } from "../site.config";
   </section>
 
   <section class="landing-section flow">
-    <h2>Components</h2>
-    <SectionCards section="components" />
+    <h2>Reference</h2>
+    <SectionCards section="reference" />
   </section>
 </Layout>
 

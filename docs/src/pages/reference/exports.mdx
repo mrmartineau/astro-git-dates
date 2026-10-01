@@ -1,0 +1,66 @@
+---
+layout: ../../layouts/Layout.astro
+title: Exports
+order: 1
+description: gitDates(), the two date helpers, and the keyword constants.
+---
+
+All exports come from the root entry, `astro-git-dates`. The package uses Node built-ins
+(`node:child_process`), so use it at build time only: in your content config or in Node scripts.
+
+## `gitDates(loader)`
+
+Wraps a content loader and returns a loader of the same type.
+
+```ts
+import { glob } from "astro/loaders";
+import { gitDates } from "astro-git-dates";
+
+loader: gitDates(glob({ pattern: "**/*.md", base: "./src/content/notes" }));
+```
+
+How it works: it wraps the loader's `parseData`. For each entry that has a `filePath`, it replaces
+every top-level field whose value is a keyword with the matching git date. Then it passes the data
+on to the normal schema validation. It runs `git log` only for fields that use a keyword.
+
+Any loader that gives `parseData` a `filePath` works. Astro's `glob()` does. `file()` gives the path
+of the one data file, so every entry in it gets that file's date.
+
+## `gitLastModified(filePath)`
+
+Returns the date of the last commit that changed the file, as a `Date`. If the file has no commits,
+it returns the current time.
+
+```ts
+import { gitLastModified } from "astro-git-dates";
+
+gitLastModified("src/pages/about.mdx");
+```
+
+## `gitCreated(filePath)`
+
+Returns the date of the commit that added the file, as a `Date`. It follows renames, so a moved
+file keeps its first date. If the file has no commits, it returns the current time.
+
+```ts
+import { gitCreated } from "astro-git-dates";
+
+gitCreated("src/pages/about.mdx");
+```
+
+Both helpers run `git` in the file's own folder, so a relative or an absolute path works.
+
+## Constants
+
+| Export              | Value                 |
+| ------------------- | --------------------- |
+| `GIT_LAST_MODIFIED` | `"git Last Modified"` |
+| `GIT_CREATED`       | `"git Created"`       |
+
+Use them to compare against raw frontmatter in your own tools:
+
+```ts
+import { GIT_LAST_MODIFIED, gitLastModified } from "astro-git-dates";
+
+const date = data.date === GIT_LAST_MODIFIED ? gitLastModified(file) : data.date;
+```

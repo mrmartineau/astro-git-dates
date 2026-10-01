@@ -2,22 +2,26 @@
 layout: ../../layouts/Layout.astro
 title: Guides
 sectionOrder: 1
-description: Learn how to install and use the package.
+description: Give your Astro content git dates, one entry at a time.
 ---
 
 import SectionCards from "../../components/SectionCards.astro";
 
-Welcome to the docs. This site is generated with
-[`@mrmartineau/zui-theme`](https://github.com/mrmartineau/zui) — an Astro docs
-theme built on [ZUI](https://github.com/mrmartineau/zui).
+`astro-git-dates` lets an entry in an Astro content collection take its date from git. Write
+`date: git Last Modified` in the frontmatter, and at build time it becomes the date of the file's
+last commit. It works like the
+[Eleventy feature](https://www.11ty.dev/docs/dates/#setting-a-content-date-in-front-matter) of the
+same name.
 
-## How this site works
+It is opt-in per entry. Entries with a normal date do not change, so you can move entries over one
+at a time.
 
-- Every `.mdx` file under `src/pages/<section>/` becomes a sidebar entry.
-- Each section's `index.mdx` sets the section's `sectionOrder` (and appears at
-  the top of its sidebar group).
-- Set `order` in a page's frontmatter to control its position in the sidebar.
-- Edit `src/site.config.ts` to change the site name, links, and version.
+## Prerequisites
+
+- Astro 5 or later.
+- Collections that use a content loader, such as `glob()` from `astro/loaders`. The old
+  `type: 'content'` collections do not give the loader a file path, so they cannot work.
+- The site is built from a git checkout with full history.
 
 ## In this section
 

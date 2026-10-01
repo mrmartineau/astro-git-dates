@@ -1,113 +1,140 @@
-# zed-package-starter
+# astro-git-dates
 
-A starter template for building TypeScript npm packages with ESM + CJS dual output, Vite+ (`vp`) linting/formatting, Bun testing, automated releases via semantic-release, and a documentation website built with Astro + [ZUI](https://github.com/mrmartineau/zui).
+Set dates in Astro content collections from git, like Eleventy's [`git Last Modified`](https://www.11ty.dev/docs/dates/#setting-a-content-date-in-front-matter).
 
-This repository is meant to be copied and customised for each new package you publish.
+Write this in an entry's frontmatter:
 
-## What's included
+```yaml
+---
+title: Array methods summarised
+date: git Last Modified
+---
+```
 
-- pnpm monorepo: the package at the repo root (`src/`), docs site in `docs/`
-- Bundling with `tsdown` (ESM + CJS output with `.d.mts` / `.d.cts` types)
-- Linting, formatting, and type-aware checks with Vite+ (`vp check`)
-- Pre-commit hook (`vp staged`) installed automatically via `vp config`
-- Testing with Bun
-- Automated releases via `semantic-release`, with a generated `CHANGELOG.md`
-- Docs site using [`@mrmartineau/zui-theme`](https://www.npmjs.com/package/@mrmartineau/zui-theme), deployed to Cloudflare Workers
-- GitHub Actions CI: build/test, docs deploy, npm release, supply-chain scan
+At build time the value becomes the date of the file's last commit. Entries with a normal date are left alone, so you can switch entries over one at a time.
 
-## How to use this template
+## Install
 
-1. Create a new repository from this one, or clone/copy it into a new folder.
-2. Update `package.json`:
-   - change `name`
-   - change `description`
-   - update `repository`, `homepage`, and `bugs` fields
-3. Update `docs/src/site.config.ts` (title, description, links) and `docs/wrangler.jsonc` (`name`).
-4. Replace the starter implementation in `src/index.ts` with your package code.
-5. Add any runtime dependencies your package needs.
-6. Install dependencies and start developing.
-7. Add repository secrets in GitHub: `NPM_TOKEN` (publishing), `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (docs deploys).
+```sh
+pnpm add astro-git-dates
+```
 
-## Install dependencies
+Needs Astro 5 or later and collections that use a [content loader](https://docs.astro.build/en/guides/content-collections/#built-in-loaders) such as `glob()`.
 
-```bash
-pnpm install
+## Usage
+
+Wrap the loader of each collection that should support git dates with `gitDates()`. One call per collection, so you choose which collections use it.
+
+```ts
+// src/content.config.ts (or src/content/config.ts)
+import { defineCollection, z } from "astro:content";
+import { glob } from "astro/loaders";
+import { gitDates } from "astro-git-dates";
+
+const blog = defineCollection({
+  loader: gitDates(glob({ pattern: "**/*.{md,mdx}", base: "./src/content/blog" })),
+  schema: z.object({
+    title: z.string(),
+    date: z.date(),
+    modified: z.date().optional(),
+  }),
+});
+
+const notes = defineCollection({
+  loader: gitDates(glob({ pattern: "**/*.md", base: "./src/content/notes" })),
+  schema: z.object({
+    title: z.string(),
+    date: z.date().optional(),
+  }),
+});
+
+export const collections = { blog, notes };
+```
+
+The schema stays `z.date()`. The swap happens before validation, so the schema only ever sees a real `Date`.
+
+### Keywords
+
+| Frontmatter value   | Becomes                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `git Last Modified` | Date of the last commit that changed the file            |
+| `git Created`       | Date of the commit that added the file (follows renames) |
+
+They work in any top-level field, not just `date`:
+
+```yaml
+---
+title: My post
+date: git Created
+modified: git Last Modified
+---
+```
+
+```yaml
+---
+title: A code note I keep updating
+date: git Last Modified
+---
+```
+
+```yaml
+---
+title: An old post with a fixed date
+date: 2022-09-21
+---
+```
+
+### Helpers
+
+The functions behind the keywords are exported too, for files outside a collection:
+
+```ts
+import { gitCreated, gitLastModified } from "astro-git-dates";
+
+gitLastModified("src/pages/about.mdx"); // Date
+gitCreated("src/pages/about.mdx"); // Date
+```
+
+## Good to know
+
+- **CI needs the full git history.** Most CI clones only the latest commit, so every file would get the same date. On GitHub Actions:
+
+  ```yaml
+  - uses: actions/checkout@v6
+    with:
+      fetch-depth: 0
+  ```
+
+- **Files not committed yet get the current time.** That is the date they will most likely get when you commit them.
+- **Bulk commits count.** If one commit touches every file (a reformat, a move), every `git Last Modified` entry gets that date. That is why it's opt-in per entry.
+- **Moving from `type: 'content'` collections:** the `glob()` loader gives entries an `id` instead of a `slug`, and you render with `render(entry)` from `astro:content` instead of `entry.render()`. Files and folders starting with `_` are no longer skipped for you; add `'!**/_*'` and `'!**/_*/**'` to the glob pattern to keep that.
+- **Other tools that read your frontmatter** (search indexers, feed scripts) see the raw `git Last Modified` text, not a date. Use the helpers above in those tools.
+- **Dev cache.** Astro skips re-parsing files whose content has not changed. A date can stay out of date in `astro dev` until the file changes or you delete `node_modules/.astro`. Builds in CI start clean.
+
+## How it works
+
+`gitDates()` wraps the loader's `parseData`. For each entry that has a `filePath`, it replaces any top-level field set to a keyword with the date from `git log`, then hands the data on to the normal schema validation. It runs one `git log` per keyword, only for entries that use one.
+
+## Agent skill
+
+The repo ships a skill (`SKILL.md`) that teaches coding agents how to set this package up. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
+
+```sh
+npx skills add mrmartineau/astro-git-dates
 ```
 
 ## Development
 
-```bash
-# Build ESM, CJS, and type declarations
-pnpm run build
-
-# Rebuild on file changes
-pnpm run dev
-
-# Check & fix formatting + linting + types
-pnpm run check
-
-# Run tests
-pnpm run test
+```sh
+pnpm install
+pnpm run build        # tsdown → dist/
+pnpm run test         # bun test
+pnpm run check        # vp check --fix (format, lint, types)
+pnpm run docs:dev     # docs site
 ```
 
-## Documentation site
-
-```bash
-pnpm run docs:dev     # dev server
-pnpm run docs:build   # production build
-pnpm run docs:deploy  # build + deploy to Cloudflare (needs wrangler auth)
-```
-
-Docs pages are MDX files in `docs/src/pages/<section>/` — the sidebar builds itself from the file structure. The package changelog is rendered at `/changelog`. See `AGENTS.md` for the full writing guide.
-
-## Releasing
-
-Run the **NPM Release** workflow from the Actions tab. Version bumps follow [conventional commits](https://www.conventionalcommits.org/):
-
-- `fix:` → patch
-- `feat:` → minor
-- `feat!:` or `BREAKING CHANGE:` → major
-
-Release notes are prepended to `CHANGELOG.md` automatically. The release job requires a `NPM_TOKEN` repository secret; `GITHUB_TOKEN` is provided automatically by GitHub Actions.
-
-## Project structure
-
-```text
-.
-├── .github/
-│   └── workflows/
-│       ├── build-test.yml
-│       ├── deploy-docs.yml
-│       ├── release.yml
-│       └── security.yml
-├── docs/               # Astro docs site (@mrmartineau/zui-theme)
-├── src/
-│   ├── index.ts
-│   └── index.test.ts
-├── CHANGELOG.md
-├── package.json
-├── pnpm-workspace.yaml
-├── release.config.mjs
-├── tsconfig.json
-└── vite.config.ts      # Vite+ tooling config (staged, fmt, lint)
-```
-
-## Agent Skill
-
-This repo includes an agent skill (`SKILL.md`) that teaches AI coding agents how to scaffold new npm packages using this template's conventions. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
-
-```bash
-# Interactive — choose your agent(s) and scope
-npx skills add mrmartineau/zed-package-starter
-
-# Install globally for Claude Code
-npx skills add mrmartineau/zed-package-starter -g -a claude-code
-```
-
-Once installed, your agent will automatically use this skill when asked to create or scaffold a new npm package.
+Releases run from the **NPM Release** workflow in the Actions tab. Versions follow [conventional commits](https://www.conventionalcommits.org/): `fix:` patch, `feat:` minor, `feat!:` major.
 
 ## License
 
 [ISC](https://choosealicense.com/licenses/isc/) © [Zander Martineau](https://zander.wtf)
-
-> Made by Zander • [zander.wtf](https://zander.wtf) • [GitHub](https://github.com/mrmartineau/)
