@@ -1,6 +1,6 @@
 {
   "name": "astro-git-dates",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Set Astro content collection dates from git: `date: git Last Modified` or `date: git Created`, like Eleventy",
   "keywords": [
     "astro",

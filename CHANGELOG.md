@@ -1,3 +1,13 @@
+# 1.0.0 (2026-10-01)
+
+### Bug Fixes
+
+- pnpm version ([561c231](https://github.com/mrmartineau/astro-git-dates/commit/561c23183c1e91c094bf86c1069a2605105f8e06))
+
+### Features
+
+- set Astro content collection dates from git ([3b992d0](https://github.com/mrmartineau/astro-git-dates/commit/3b992d0d8bb0754e97a9b84ece24929401460c23))
+
 # Changelog
 
 Release notes are generated automatically by
