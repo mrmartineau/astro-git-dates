@@ -136,6 +136,14 @@ pnpm run check        # vp check --fix (format, lint, types)
 
 Releases run from the **NPM Release** workflow in the Actions tab. Versions follow [conventional commits](https://www.conventionalcommits.org/): `fix:` patch, `feat:` minor, `feat!:` major.
 
+## More Astro packages
+
+Other Astro tools I have made:
+
+- [astro-d1-search](https://github.com/mrmartineau/astro-d1-search): site search for Astro backed by Cloudflare D1
+- [zed-astro-starter](https://github.com/mrmartineau/zed-astro-starter): an opinionated Astro starter, ready to deploy to Cloudflare Workers
+- [ZUI](https://github.com/mrmartineau/zui): a CSS-first UI library with Astro (and React, Solid, Svelte, Vue) components
+
 ## License
 
 [ISC](https://choosealicense.com/licenses/isc/) © [Zander Martineau](https://zander.wtf)
