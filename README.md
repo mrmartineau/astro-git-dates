@@ -1,5 +1,7 @@
 # astro-git-dates
 
+> **This package is archived.** Use [astro-entry-meta](https://github.com/mrmartineau/astro-entry-meta) instead. It does everything this package does, plus publishing rules and computed fields. See [Moving from astro-git-dates](https://github.com/mrmartineau/astro-entry-meta#moving-from-astro-git-dates).
+
 [![npm](https://img.shields.io/npm/v/astro-git-dates)](https://www.npmjs.com/package/astro-git-dates)
 
 Set dates in Astro content collections from git, like Eleventy's [`git Last Modified`](https://www.11ty.dev/docs/dates/#setting-a-content-date-in-front-matter).
